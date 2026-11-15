@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iato-bau"
+version = "0.1.0"
+description = "IATO BAU daily tooling: read-only Microsoft Entra and Graph exports"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+iato-entra-users = "iato_bau.entra_users:main"
+
+[tool.setuptools]
+packages = ["iato_bau"]
