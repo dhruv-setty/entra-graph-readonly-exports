@@ -51,4 +51,4 @@ tests/                    unit tests, no network needed
 python -m unittest discover -s tests -t . -v
 ```
 
-CI runs the tests on Python 3.9 and 3.12 and checks the installed command starts.
+CI runs the tests on Python 3.10 and 3.13 and checks the installed command starts.
