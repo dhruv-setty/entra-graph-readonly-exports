@@ -2,7 +2,7 @@
 
 Daily operational tooling in the IATO family. Where the other IATO repositories produce audit evidence, this one covers the routine, business-as-usual work an identity or systems administrator runs every day against Microsoft Entra ID (Azure AD) through Microsoft Graph.
 
-Everything is read only, uses the Python standard library, and fails closed: a run that cannot read every page writes nothing.
+Everything is read only, uses the Python standard library (the AD tool adds ldap3 as an optional extra), and fails closed: a run that cannot read every page writes nothing.
 
 ## Tools
 
@@ -24,7 +24,50 @@ iato-entra-users --filter "accountEnabled eq true" --fields id,userPrincipalName
 
 Default fields: `id`, `userPrincipalName`, `displayName`, `givenName`, `surname`, `mail`, `jobTitle`, `department`, `officeLocation`, `companyName`, `employeeId`, `mobilePhone`, `businessPhones`, `accountEnabled`, `userType`, `createdDateTime`. In CSV, list values such as `businessPhones` are joined with `;`.
 
-## Authentication
+### `iato-ad-user`
+
+Looks up an on-premises Active Directory user by username from Linux, the way `Get-ADUser` does on Windows. It returns the user's real `distinguishedName` wherever the account sits, so nothing assumes the OU or that the CN matches the login name.
+
+- Searches the whole subtree from the domain root for `sAMAccountName`, or `userPrincipalName` when the input contains `@`, limited to user objects.
+- Escapes the username before building the filter, so input such as `*)(cn=*` cannot widen the search.
+- Refuses a username that matches no account or more than one.
+- Uses LDAPS, or StartTLS on `ldap://`, and validates the domain controller's certificate.
+- Does not chase referrals, so a search from the domain root does not hang on other partitions.
+
+```
+pip install ".[ad]"
+iato-ad-user jsmith
+iato-ad-user jsmith@example.com --attributes mail,department,memberOf
+```
+
+| Variable | Use |
+|---|---|
+| `AD_SERVER` | `ldaps://dc01.example.com`, or `ldap://` to use StartTLS |
+| `AD_BASE_DN` | The domain root, for example `dc=example,dc=com` |
+| `AD_BIND_USER`, `AD_BIND_PASSWORD` | A read-only service account, as a UPN or `DOMAIN\user` |
+| `AD_CA_FILE` | Optional CA bundle for the domain controller certificate |
+
+#### Signing in to a Flask app
+
+`authenticate(username, password)` uses bind, search, then bind. It binds as the service account, finds the user's DN by username, then binds as that DN with the password the user typed. It returns the DN on success and `None` otherwise. Disabled accounts and empty passwords are refused, since an empty password is an unauthenticated bind that LDAP would accept.
+
+```python
+from flask import Flask, request, session, redirect, abort
+from iato_bau.ad_users import authenticate
+
+app = Flask(__name__)
+app.secret_key = "load-from-your-secret-store"
+
+@app.post("/login")
+def login():
+    dn = authenticate(request.form["username"], request.form["password"])
+    if dn is None:
+        abort(401)
+    session["user_dn"] = dn
+    return redirect("/")
+```
+
+## Entra authentication
 
 Register an app in Microsoft Entra, add the `User.Read.All` application permission, and grant admin consent. Nothing else is needed.
 
@@ -41,7 +84,8 @@ Keep the secret in a secret store or pipeline variable, never in the repository.
 
 ```
 iato_bau/graph.py         trusted-host check, retries, @odata.nextLink paging
-iato_bau/entra_users.py   user export command
+iato_bau/entra_users.py   Entra user export command
+iato_bau/ad_users.py      Active Directory lookup and bind-search-bind
 tests/                    unit tests, no network needed
 ```
 

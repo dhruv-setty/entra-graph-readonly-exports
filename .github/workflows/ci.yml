@@ -20,5 +20,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - run: pip install ".[ad]"
       - run: python -m unittest discover -s tests -t . -v
-      - run: pip install . && iato-entra-users --help
+      - run: iato-entra-users --help && iato-ad-user --help

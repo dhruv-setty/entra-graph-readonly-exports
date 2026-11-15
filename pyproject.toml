@@ -9,8 +9,12 @@ description = "IATO BAU daily tooling: read-only Microsoft Entra and Graph expor
 requires-python = ">=3.10"
 dependencies = []
 
+[project.optional-dependencies]
+ad = ["ldap3>=2.9"]
+
 [project.scripts]
 iato-entra-users = "iato_bau.entra_users:main"
+iato-ad-user = "iato_bau.ad_users:main"
 
 [tool.setuptools]
 packages = ["iato_bau"]
