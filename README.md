@@ -24,9 +24,31 @@ iato-entra-users --filter "accountEnabled eq true" --fields id,userPrincipalName
 
 Default fields: `id`, `userPrincipalName`, `displayName`, `givenName`, `surname`, `mail`, `jobTitle`, `department`, `officeLocation`, `companyName`, `employeeId`, `mobilePhone`, `businessPhones`, `accountEnabled`, `userType`, `createdDateTime`. In CSV, list values such as `businessPhones` are joined with `;`.
 
+### `entra-export`
+
+Read-only exports of the directory around the users: who holds which admin role, which groups exist and who is in them, which apps are registered, and what they have been consented to. Every export pages through `@odata.nextLink` with the same trusted-host check and retries as the user export, and writes nothing if a page fails.
+
+```
+entra-export roles --format csv --output roles.csv
+entra-export group-members --format csv --output memberships.csv
+entra-export apps > apps.json
+entra-export consents --format csv --output consents.csv
+entra-export oidc --tenant contoso.onmicrosoft.com
+```
+
+| Export | What it lists | Application permission |
+|---|---|---|
+| `roles` | Directory role assignments (RBAC), each joined to its role name and the user, group or app holding it | `RoleManagement.Read.Directory` |
+| `groups` | Every group: security or Microsoft 365, dynamic membership rule, synced from on-premises | `Group.Read.All` |
+| `group-members` | One row per membership, across every group | `GroupMember.Read.All` |
+| `apps` | App registrations, with secret and certificate counts and the nearest expiry date | `Application.Read.All` |
+| `sps` | Service principals (enterprise applications) | `Application.Read.All` |
+| `consents` | Delegated OAuth 2.0 grants, flagging those that include the OpenID `openid` scope | `DelegatedPermissionGrant.Read.All` |
+| `oidc` | The tenant's public OpenID Connect discovery document: issuer, endpoints, signing keys URL | none, no token is sent |
+
 ## Authentication
 
-Register an app in Microsoft Entra, add the `User.Read.All` application permission, and grant admin consent. Nothing else is needed.
+Register an app in Microsoft Entra, add the application permissions for the exports you run (`User.Read.All` for users, and those in the table above), and grant admin consent. Every permission is a read permission.
 
 Then provide either:
 
@@ -42,6 +64,8 @@ Keep the secret in a secret store or pipeline variable, never in the repository.
 ```
 iato_bau/graph.py         trusted-host check, retries, @odata.nextLink paging
 iato_bau/entra_users.py   user export command
+iato_bau/exports.py       roles, groups, apps, consents and OIDC exports
+docs/screenshots/         sample output from a developer tenant
 tests/                    unit tests, no network needed
 ```
 
@@ -52,3 +76,20 @@ python -m unittest discover -s tests -t . -v
 ```
 
 CI runs the tests on Python 3.10 and 3.13 and checks the installed command starts.
+
+## Screenshots
+
+Sample runs live in `docs/screenshots/`. They come from a Microsoft 365 developer tenant with sample users only, never a production or employer tenant, so no real names, addresses or tenant IDs appear.
+
+## Microsoft Graph references
+
+- [Paging Microsoft Graph data](https://learn.microsoft.com/en-us/graph/paging)
+- [Microsoft Graph throttling guidance](https://learn.microsoft.com/en-us/graph/throttling)
+- [List users](https://learn.microsoft.com/en-us/graph/api/user-list)
+- [List role assignments](https://learn.microsoft.com/en-us/graph/api/rbacapplication-list-roleassignments) and [role definitions](https://learn.microsoft.com/en-us/graph/api/rbacapplication-list-roledefinitions)
+- [List groups](https://learn.microsoft.com/en-us/graph/api/group-list) and [group members](https://learn.microsoft.com/en-us/graph/api/group-list-members)
+- [List applications](https://learn.microsoft.com/en-us/graph/api/application-list) and [service principals](https://learn.microsoft.com/en-us/graph/api/serviceprincipal-list)
+- [List oauth2PermissionGrants](https://learn.microsoft.com/en-us/graph/api/oauth2permissiongrant-list)
+- [OpenID Connect on the Microsoft identity platform](https://learn.microsoft.com/en-us/entra/identity-platform/v2-protocols-oidc)
+- [OAuth 2.0 client credentials flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow)
+- [Microsoft Graph permissions reference](https://learn.microsoft.com/en-us/graph/permissions-reference)

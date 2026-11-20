@@ -21,4 +21,4 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m unittest discover -s tests -t . -v
-      - run: pip install . && iato-entra-users --help
+      - run: pip install . && iato-entra-users --help && entra-export --help
